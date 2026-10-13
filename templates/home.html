@@ -1,0 +1,305 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="chat-page-layout">
+    <!-- Chat History Sidebar -->
+    <aside id="chatHistorySidebar" class="chat-history-sidebar card">
+        <h3>Recent Chats</h3>
+        <!-- Add a delete button container -->
+        <div id="chatControls" style="margin-bottom: 10px; display: none;">
+            <button id="deleteChatButton" class="btn btn-danger" style="width: 100%; padding: 8px 0; margin: 0;">
+                <i class="fas fa-trash"></i> Delete Current Chat
+            </button>
+        </div>
+        
+        <div class="chat-sessions-list">
+            {% if user.role == 'student' and chat_sessions %}
+                {% for session in chat_sessions %}
+                    <a href="#" 
+                       data-session-id="{{ session._id }}" 
+                       class="session-link"
+                       onclick="loadChatSession('{{ session._id }}', event)">
+                        <i class="fas fa-comment-alt"></i> 
+                        {{ session.created_at.strftime('%H:%M') }} - 
+                        {{ session.messages[0].text[:25] }}{% if session.messages[0].text|length > 25 %}...{% endif %}
+                    </a>
+                {% endfor %}
+            {% else %}
+                <p class="small text-muted" style="padding: 10px;">
+                    {% if user.role == 'student' %}
+                        No chats yet today. Start a new conversation!
+                    {% else %}
+                        Chat history is only visible to students.
+                    {% endif %}
+                </p>
+            {% endif %}
+        </div>
+        <button id="newChatButton" class="btn" style="width: 100%; margin-top: 20px;">
+            <i class="fas fa-plus"></i> Start New Chat
+        </button>
+    </aside>
+
+    <!-- Main Chat Window -->
+    <section class="card chat-section">
+        <header>
+            <div class="avatar">CB</div>
+            <div>
+                <!-- This H1 is the primary chat title -->
+                <h1 id="chatTitle">Institute Chatbot</h1>
+                <!-- This paragraph is the description, which must not be overwritten -->
+                <p class="small chat-description">Ask about notices, results, notes, events and syllabus. The bot will only use documents uploaded for your institute.</p>
+            </div>
+        </header>
+
+        <div class="messages" id="messages">
+            <div class="msg bot initial-greeting">Hello! Type your question below or select a recent chat from the left column.</div>
+        </div>
+        
+        <form id="chatForm" autocomplete="off">
+            <!-- Hidden input to pass the current session ID back to the server -->
+            <input id="session_id_input" type="hidden" name="session_id" value="" />
+            <input id="input" type="text" name="message" placeholder="Type your message..." required />
+            <button type="submit">Send</button>
+        </form>
+
+        <div id="attachments" style="display: none;"></div>
+    </section>
+</div>
+
+<script>
+const form = document.getElementById('chatForm');
+const input = document.getElementById('input');
+const messages = document.getElementById('messages');
+const sessionInput = document.getElementById('session_id_input');
+const chatTitle = document.getElementById('chatTitle'); // Target the H1 element
+const newChatButton = document.getElementById('newChatButton');
+const sessionsList = document.querySelector('.chat-sessions-list');
+const deleteChatButton = document.getElementById('deleteChatButton');
+const chatControls = document.getElementById('chatControls');
+const isStudent = "{{ user.role }}" === 'student';
+
+
+let currentSessionId = null; // Global state for current session ID
+const DEFAULT_CHAT_TITLE = 'Institute Chatbot'; // Constant for the default title
+
+// Helper to render text with inline download links
+function renderBotMessage(text, attachments) {
+    let html = text;
+    
+    // Convert the file_id, which is an ObjectId in the DB, to its string representation
+    attachments.forEach(att => {
+        const fileLinkHtml = `
+            <a href="/download/${att.file_id}" class="filelink inline-link" target="_blank" title="Download ${att.filename}">
+                <i class="fas fa-file-download"></i> ${att.title}
+            </a>
+        `;
+        const escapedTitle = att.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedFilename = att.filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        let regex = new RegExp(`\\b${escapedTitle}\\b`, 'gi'); 
+        html = html.replace(regex, fileLinkHtml);
+        
+        regex = new RegExp(`\\b${escapedFilename}\\b`, 'gi'); 
+        html = html.replace(regex, fileLinkHtml);
+    });
+
+    return html;
+}
+
+
+function appendMessage(msg, scroll=true) {
+    if (sessionsList && sessionsList.querySelector('.text-muted')) {
+        sessionsList.querySelector('.text-muted').remove();
+    }
+    
+    const el = document.createElement('div');
+    el.className = 'msg ' + msg.role;
+    
+    if (msg.role === 'bot') {
+        const attachments = msg.attachments || [];
+        el.innerHTML = renderBotMessage(msg.text, attachments);
+    } else {
+        el.textContent = msg.text;
+    }
+
+    messages.appendChild(el);
+    if (scroll) {
+        messages.scrollTop = messages.scrollHeight;
+    }
+}
+
+// Resets the chat interface for a new conversation
+function clearChatWindow() {
+    messages.innerHTML = '';
+    sessionInput.value = '';
+    currentSessionId = null;
+    chatTitle.textContent = DEFAULT_CHAT_TITLE; 
+    chatControls.style.display = 'none'; // Hide delete button
+    document.querySelectorAll('.session-link').forEach(link => link.classList.remove('active'));
+    appendMessage({role: 'bot', text: 'Hello! Type your question below or select a recent chat from the left column.'}, false);
+}
+
+// Function to delete the current chat session
+async function deleteChatSession() {
+    if (!currentSessionId) return;
+
+    if (!confirm("Are you sure you want to delete this chat session? This action cannot be undone.")) return;
+
+    deleteChatButton.disabled = true;
+    deleteChatButton.textContent = "Deleting...";
+
+    try {
+        const res = await fetch(`/delete_chat/${currentSessionId}`, { method: 'POST' });
+        const data = await res.json();
+
+        if (res.ok && data.status === 'ok') {
+            // Remove the link from the sidebar
+            const linkToRemove = document.querySelector(`.session-link[data-session-id='${currentSessionId}']`);
+            if (linkToRemove) {
+                linkToRemove.remove();
+            }
+            // Clear the chat window
+            clearChatWindow();
+            // Show new greeting if all chats are gone
+            if (sessionsList.children.length === 0) {
+                 sessionsList.innerHTML = '<p class="small text-muted" style="padding: 10px;">No chats yet today. Start a new conversation!</p>';
+            }
+        } else {
+            throw new Error(data.message || 'Unknown deletion error.');
+        }
+    } catch (error) {
+        alert("Failed to delete chat: " + error.message);
+        console.error("Deletion error:", error);
+    } finally {
+        deleteChatButton.disabled = false;
+        deleteChatButton.innerHTML = '<i class="fas fa-trash"></i> Delete Current Chat';
+    }
+}
+
+// Function to load a past chat history from the server
+async function loadChatSession(sessionId, e) {
+    if (e) e.preventDefault();
+    if (currentSessionId === sessionId) return; 
+
+    document.querySelectorAll('.session-link').forEach(link => link.classList.remove('active'));
+    if (e && e.currentTarget) e.currentTarget.classList.add('active');
+
+    messages.innerHTML = '';
+    currentSessionId = sessionId;
+    sessionInput.value = sessionId;
+    chatTitle.textContent = 'Loading Chat...';
+    chatControls.style.display = 'block'; // Show delete button
+    
+    try {
+        const res = await fetch(`/chat/session/${sessionId}`);
+        if (res.status !== 200) {
+            throw new Error('Failed to load session');
+        }
+        const data = await res.json();
+        
+        // Use the first user message for a simple title
+        const firstUserMsg = data.messages.find(msg => msg.role === 'user');
+        const titleText = firstUserMsg ? firstUserMsg.text.substring(0, 30) : "Chat Session";
+        
+        // When loading an EXISTING session, we set the H1 title to the first message
+        chatTitle.textContent = titleText;
+        
+        data.messages.forEach((msg) => {
+            appendMessage(msg, false);
+        });
+        
+        messages.scrollTop = messages.scrollHeight; 
+        
+    } catch (error) {
+        chatTitle.textContent = 'Error Loading Chat';
+        appendMessage({role: 'bot', text: 'Could not load chat history. This session may have expired.'}, false);
+        console.error("Error loading chat session:", error);
+        chatControls.style.display = 'none'; 
+    }
+}
+
+// Event listener for sending a new message
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    
+    const isNewChat = !currentSessionId;
+    
+    // UI updates while sending
+    const welcomeMsg = messages.querySelector('.initial-greeting');
+    if (welcomeMsg) welcomeMsg.remove();
+
+    appendMessage({role: 'user', text: text}, true);
+    input.value = '';
+    
+    input.disabled = true;
+    form.querySelector('button').disabled = true;
+    
+    const originalPlaceholder = input.placeholder;
+    input.placeholder = "Bot is typing...";
+    
+    const sessionIdToSend = currentSessionId; 
+
+    const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, session_id: sessionIdToSend })
+    });
+    
+    input.placeholder = originalPlaceholder;
+    input.disabled = false;
+    form.querySelector('button').disabled = false;
+
+    const data = await res.json();
+    
+    // 1. Update Global/Form Session ID and History Sidebar if a new session was created
+    if (data.session_id && data.session_id !== currentSessionId) {
+        currentSessionId = data.session_id;
+        sessionInput.value = currentSessionId;
+        chatControls.style.display = 'block'; // Show delete button
+
+        if (isStudent) {
+            // Dynamically add new session link to sidebar
+            const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            const newLink = document.createElement('a');
+            newLink.href = "#";
+            newLink.className = 'session-link active';
+            newLink.setAttribute('data-session-id', data.session_id);
+            newLink.setAttribute('onclick', `loadChatSession('${data.session_id}', event)`);
+            newLink.innerHTML = `<i class="fas fa-comment-alt"></i> ${timeStr} - ${text.substring(0, 25)}${text.length > 25 ? '...' : ''}`;
+            
+            document.querySelectorAll('.session-link').forEach(link => link.classList.remove('active'));
+            sessionsList.prepend(newLink);
+            
+            // FIX: Keep the header title as the default for new chats
+            chatTitle.textContent = DEFAULT_CHAT_TITLE; 
+        }
+    } else if (data.session_id && data.session_id === currentSessionId) {
+        // Ensure the current link is active
+        const activeLink = document.querySelector(`.session-link[data-session-id='${currentSessionId}']`);
+        if (activeLink) activeLink.classList.add('active');
+    }
+
+    // 2. Append Bot Response
+    appendMessage({role: 'bot', text: data.reply || 'No reply.', attachments: data.attachments || []}, true);
+
+    input.focus();
+});
+
+// Event listeners for control buttons
+newChatButton.addEventListener('click', clearChatWindow);
+deleteChatButton.addEventListener('click', deleteChatSession);
+
+
+// Auto-load the most recent chat session if it exists on load
+window.addEventListener('load', function() {
+    const mostRecentLink = document.querySelector('.session-link');
+    if (mostRecentLink && isStudent) {
+        setTimeout(() => {
+            // NOTE: We pass null for the event to prevent the click handler from firing multiple times
+            loadChatSession(mostRecentLink.getAttribute('data-session-id'), null); 
+        }, 100); 
+    }
+});
+</script>
+{% endblock %}

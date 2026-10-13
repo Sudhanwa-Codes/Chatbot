@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card center-card">
+  <h2>Register</h2>
+  <form method="post">
+    <div class="form-group">
+      <label>Institute ID</label>
+      <input name="institute_id" required>
+    </div>
+    <div class="form-group">
+      <label>Username</label>
+      <input name="username" required>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" name="password" required>
+    </div>
+    <div class="form-group">
+      <label>Role</label>
+      <select name="role" required>
+        <option value="student">Student</option>
+        <option value="teacher">Teacher / Management</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Branch (optional)</label>
+      <input name="branch" placeholder="E.g. CSE">
+    </div>
+    <div class="form-group">
+      <label>Year (optional)</label>
+      <input name="year" placeholder="E.g. 3">
+    </div>
+    <button type="submit">Register</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>College KB Chatbot</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <!-- Used for simple icon in logo and dark mode toggle -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+  <nav class="topnav">
+    <span class="logo-title">
+      <i class="fas fa-graduation-cap" style="color: var(--primary);"></i>
+      KB Chatbot
+    </span>
+    <a href="{{ url_for('index') }}">Home</a>
+    {% if user %}
+      {% if user.role == 'teacher' %}
+        <a href="{{ url_for('teacher_dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('upload_file') }}">Upload</a>
+        <a href="{{ url_for('manage_files') }}">Manage Files</a>
+      {% else %}
+        <a href="{{ url_for('student_dashboard') }}">Student</a>
+      {% endif %}
+      
+      <span class="muted">Institute: {{ user.institute_id }}</span>
+      <button id="darkModeToggle" class="dark-mode-toggle">🌙</button>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <button id="darkModeToggle" class="dark-mode-toggle">🌙</button>
+      <a href="{{ url_for('login') }}">Login</a>
+      <a href="{{ url_for('register') }}">Register</a>
+    {% endif %}
+  </nav>
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashlist">
+          {% for cat, msg in messages %}
+            <div class="flash {{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

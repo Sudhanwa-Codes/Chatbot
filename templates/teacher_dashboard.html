@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card" style="padding:16px;max-width:900px;margin:auto;">
+  <h2>Teacher Dashboard</h2>
+  <p>Welcome, <strong>{{ user.username }}</strong> — Institute: <strong>{{ user.institute_id }}</strong></p>
+  <div style="margin-top: 25px; display: flex; gap: 15px;">
+    <a href="{{ url_for('upload_file') }}" class="btn" style="margin-top: 0;">
+        <i class="fas fa-upload"></i> Upload new file
+    </a>
+    <a href="{{ url_for('manage_files') }}" class="btn" style="background: var(--secondary); margin-top: 0;">
+        <i class="fas fa-folder-open"></i> Manage files
+    </a>
+  </div>
+</div>
+{% endblock %}

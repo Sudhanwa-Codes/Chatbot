@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card" style="max-width:1000px;margin:auto;">
+  <h2>Manage Uploaded Files</h2>
+  {% if docs %}
+    <table>
+      <thead><tr><th>Title / Filename</th><th>Section</th><th>Subject</th><th>Branch/Year</th><th>Uploaded</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for d in docs %}
+        <tr>
+          <td>
+            <strong>{{ d.title }}</strong> 
+            <br>
+            <small class="small">{{ d.filename }}</small>
+          </td>
+          <td>{{ d.section }}</td>
+          <td>{{ d.subject }}</td>
+          <td>
+            {% if d.branch or d.year %}
+              {{ d.branch or '' }}{% if d.branch and d.year %}, {% endif %}{{ d.year or '' }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>{{ d.upload_date.strftime('%Y-%m-%d') if d.upload_date else '' }}</td>
+          <td>
+            <a href="{{ url_for('download_file', file_id=d._id) }}" class="btn" style="background: var(--secondary); margin-top: 0;">
+                <i class="fas fa-download"></i> Download
+            </a>
+            <button onclick="deleteFile('{{ d._id }}')" class="btn btn-danger" style="margin-top: 0;">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div style="text-align: center; padding: 30px;">
+        <i class="fas fa-box-open" style="font-size: 2rem; color: var(--text-muted); margin-bottom: 15px;"></i>
+        <p class="small">No files have been uploaded to your institute's knowledge base yet.</p>
+        <a href="{{ url_for('upload_file') }}" class="btn">Upload First File</a>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+async function deleteFile(id) {
+  // Use a custom alert/confirm box in a real application, using window.confirm for simplicity here.
+  if (!confirm("Are you sure you want to permanently delete this file?")) return;
+  
+  const button = event.target;
+  button.disabled = true;
+  button.textContent = "Deleting...";
+
+  const res = await fetch('/delete_file/' + id, { method: 'POST' });
+  const data = await res.json();
+  
+  if (data.status === 'ok') {
+    // Reload the page to show the updated list
+    location.reload(); 
+  } else {
+    alert(data.message || 'Error deleting file. Check console.');
+    console.error(data);
+    button.disabled = false;
+    button.innerHTML = '<i class="fas fa-trash"></i> Delete';
+  }
+}
+</script>
+{% endblock %}

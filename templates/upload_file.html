@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card" style="max-width:700px;margin:auto;padding:18px;">
+  <h2>Upload File</h2>
+  <form method="post" enctype="multipart/form-data">
+    <label>Title</label>
+    <input name="title" placeholder="Optional">
+    <label>Section</label>
+    <select name="section" required>
+      <option value="notice">notice</option>
+      <option value="result">result</option>
+      <option value="notes">notes</option>
+      <option value="event_updated">event_updated</option>
+      <option value="syllabuses">syllabuses</option>
+    </select>
+    <label>Branch</label>
+    <input name="branch" placeholder="E.g. CSE">
+    <label>Year</label>
+    <input name="year" placeholder="E.g. 3">
+    <label>Subject</label>
+    <input name="subject" placeholder="E.g. AIML">
+    <label>File</label>
+    <input type="file" name="file" accept=".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt" required>
+    <button type="submit">Upload</button>
+  </form>
+</div>
+{% endblock %}

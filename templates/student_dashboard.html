@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="card" style="max-width:800px;margin:auto;">
+  <h2>Student Dashboard</h2>
+  <p>Welcome, <strong>{{ user.username }}</strong> — Institute: <strong>{{ user.institute_id }}</strong></p>
+  <div style="margin-top: 25px; display: flex; gap: 15px; flex-wrap: wrap;">
+    <a href="{{ url_for('index') }}" class="btn" style="display: inline-block; margin-top: 0;">
+        <i class="fas fa-comment-dots"></i> Chat with Bot
+    </a>
+    <button onclick="listNotices()" class="btn" style="background: var(--secondary); margin-top: 0;">
+        <i class="fas fa-bullhorn"></i> List Institute Notices
+    </button>
+  </div>
+  
+  <div id="studentfiles" style="margin-top: 30px;"></div>
+</div>
+
+<script>
+async function listNotices() {
+  const el = document.getElementById('studentfiles');
+  el.innerHTML = '<h3 style="margin-bottom:15px;">Official Notices</h3><div class="small">Loading...</div>';
+
+  try {
+    const res = await fetch('/kb_list?section=notice');
+    const arr = await res.json();
+    el.innerHTML = '<h3 style="margin-bottom:15px;">Official Notices</h3>';
+
+    if (!arr.length) {
+      el.innerHTML += '<div class="small">No notices are currently available for your institute.</div>';
+      return;
+    }
+
+    const list = document.createElement('div');
+    list.style.borderTop = '1px solid var(--border-color)';
+    
+    arr.forEach(f => {
+      const noticeDiv = document.createElement('div');
+      noticeDiv.style.padding = '10px 0';
+      noticeDiv.style.borderBottom = '1px solid var(--border-color)';
+      noticeDiv.style.transition = 'background-color 0.2s';
+      noticeDiv.onmouseover = function() { this.style.backgroundColor = 'var(--surface-alt)'; };
+      noticeDiv.onmouseout = function() { this.style.backgroundColor = 'transparent'; };
+
+      
+      const title = document.createElement('strong');
+      title.textContent = f.title;
+      
+      const filename = document.createElement('span');
+      filename.className = 'small';
+      filename.textContent = ` (${f.filename})`;
+      
+      const downloadLink = document.createElement('a');
+      downloadLink.href = '/download/' + f.id;
+      downloadLink.className = 'filelink';
+      downloadLink.textContent = ' [Download]';
+      
+      noticeDiv.appendChild(title);
+      noticeDiv.appendChild(filename);
+      noticeDiv.appendChild(downloadLink);
+      list.appendChild(noticeDiv);
+    });
+    
+    el.appendChild(list);
+
+  } catch(e) {
+    el.innerHTML = '<h3 style="margin-bottom:15px;">Official Notices</h3><div class="flash danger">Error loading notices.</div>';
+  }
+}
+</script>
+{% endblock %}
